@@ -134,7 +134,7 @@ for n = 1:no_movies
         
         if isempty(responseM{sweepDir_id(ii)})
         [ii sweepDir_id(ii)]
-        responseM{sweepDir_id(t)} = imgall(:, frameOnset(ii) : frameOnset(ii+1)); %replace frameOffset with frameOnset(i+1)
+        responseM{sweepDir_id(ii)} = imgall(:, frameOnset(ii) : frameOnset(ii+1)); %replace frameOffset with frameOnset(i+1)
         else    
         [ii sweepDir_id(ii)]
         responseM{sweepDir_id(ii)} = cat(3, responseM{sweepDir_id(ii)}, ...
