@@ -41,9 +41,10 @@ ROI = ReadImageJROI(mask_fn);
 for n = 1:4 %length(file_list)
     
     load(file_list(n).name)
-    mask = poly2mask(ROI.mnCoordinates(:, 1), ROI.mnCoordinates(:, 2), sz(1), sz(2));
+    mask = poly2mask(ROI.mnCoordinates(:, 1), ROI.mnCoordinates(:, 2), sz(1)/downSampleRatio, sz(2)/downSampleRatio); %downsample ROI
+    mask = imresize(mask, downSampleRatio);
     mask_id = find(mask > 0);
-    
+        
     
     for d = 1 : length(avgResponseM)
         
