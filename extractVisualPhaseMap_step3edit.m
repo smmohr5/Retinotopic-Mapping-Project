@@ -83,11 +83,11 @@ for n = 1:4 %length(file_list)
             B = find(A < -90);
             A(B) = A(B)+ 360;
                 
-     %with interstime frames phase angles vert:(-90, 135) horz:(-90, 171.82)    
+     %with interstim frames phase angles vert:(-90, 135) horz:(-90, 171.82); d1/2 are horz    
         if d == 1 || d==2
-            A = (A/1.6314)-13.793;
+            A = (A/1.898)-21.549;
         else
-            A = (A/2.23)-18.343;
+            A = (A/1.917)-11.74;
         end
         
 %         if no interstim frames (-90 - 270 degrees)
