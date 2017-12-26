@@ -1,0 +1,62 @@
+
+clear; clc;
+
+% cd 'D:\Lab\Data\ChAT\160607_p7_dreadds'
+% cd 'D:\Lab\Data\wholeBrain\161019_snap25_p12_8.6g_female_16.6x_upstairs'
+% cd 'D:\Lab\Data\ChAT\Tra2b\170223_emxTra2b_p10_8.7g_female_125x_3rdRig'
+% cd 'D:\Lab\Data\Rat\170420_P8_3rdRig_'
+cd 'E:\Lab\Data\withSarah\data\171207'
+
+fnm = '171207_02_retin.tif';
+fnm2 = '171207_02_retin@0001.tif';
+
+
+
+downSampleRatio = 0.5;
+
+%---Get SVDs---
+A = openMovie(fnm);
+A = imresize(A, downSampleRatio, 'bilinear');
+imgall = A;
+clear A
+B = openMovie(fnm2);
+B = imresize(B, downSampleRatio, 'bilinear');
+imgall = cat(3, imgall, B);
+clear A B
+
+nPCs = 100;
+
+% imgall = A;
+%---Get SVDs---
+sz = size(imgall); szZ=sz(3);
+npix = prod(sz(1:2));
+imgall = reshape(imgall, npix, szZ); %reshape 3D array into space-time matrix
+Amean = mean(imgall, 2); %avg at each pixel location in the image over time
+imgall = imgall ./ (Amean * ones(1,szZ)) - 1;   % F/F0 - 1 == ((F-F0)/F0);
+Amean = reshape(Amean,sz(1),sz(2));
+imgall = reshape(imgall, sz(1), sz(2), szZ);
+% imgall = reshape(imgall, sz(1), sz(2), sz(3));
+
+
+[mixedsig, mixedfilters, CovEvals, covtrace, movtm] = wholeBrainSVD_xx(imgall, nPCs);
+viewPCs_xx(mixedfilters(:,:,1:nPCs));
+
+
+
+figure; plot(CovEvals); ylabel('eigenvalue, \lambda^2'); xlabel('eigenvalue index (PC mode no.)'); zoom xon
+figure; PlotPCspectrum(fnm, CovEvals, 1:250); zoom xon
+%---END interactive block---
+
+%%
+badPCs = [1 2 3 4 8 10 12];  %***change these values***
+sz=size(mixedfilters);
+npix = prod(sz(1:2));
+szXY = sz(1:2); szZ = size(mixedsig,2);
+PCuse=setdiff(1:nPCs, badPCs); 
+mixedfilters2 = reshape(mixedfilters(:,:,PCuse),npix,length(PCuse)); 
+
+
+
+%Save the results in the following format
+save([fnm(1:end-4) '_svd_' datestr(now,'yyyymmdd-HHMMSS') '.mat'], 'mixedfilters', 'mixedfilters2', ...
+    'mixedsig', 'CovEvals', 'badPCs', 'PCuse','movtm','covtrace')
