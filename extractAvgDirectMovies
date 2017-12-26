@@ -1,6 +1,3 @@
-% 09/12/2017 
-% 1. Add imgall stimulus red sign on dF/F movies for movies with
-% stimulations
 % 2. Extract averaged response movie
 
 % files_pre.txt with movie names, spike2 files
@@ -11,19 +8,16 @@
 
 
 clear; clc;
+cd 'E:\Lab\Data\withSarah\data\171207'
 
-%cd E:\Lab\Data\withSarah\data\171018
-cd Z:\Sarah\testfolder
-addpath(genpath('Z:\Sarah\toolbox'))
-
-
-%addpath(genpath('/ysm-gpfs/project/sm2736/toolbox/toolbox/piotr_toolbox'))
-%addpath(genpath('/ysm-gpfs/project/sm2736/toolbox/toolbox/wholeBrainDX'))
-%addpath(genpath('/ysm-gpfs/project/sm2736/toolbox/toolbox/sigTOOL'))
-%addpath(genpath('/ysm-gpfs/project/sm2736/toolbox/toolbox/CalciumDX'))
-%addpath(genpath('/ysm-gpfs/project/sm2736/toolbox/toolbox/bfmatlab'))
-%addpath(genpath('/ysm-gpfs/project/sm2736/toolbox/toolbox/chatAnalysis'))
-%addpath(genpath('/ysm-gpfs/project/sm2736/toolbox/toolbox/piotr_toolbox'))
+% addpath(genpath('/ysm-gpfs/project/sm2736/toolbox/toolbox/piotr_toolbox'))
+% addpath(genpath('/ysm-gpfs/project/sm2736/toolbox/toolbox/wholeBrainDX'))
+% addpath(genpath('/ysm-gpfs/project/sm2736/toolbox/toolbox/sigTOOL'))
+% addpath(genpath('/ysm-gpfs/project/sm2736/toolbox/toolbox/CalciumDX'))
+% addpath(genpath('/ysm-gpfs/project/sm2736/toolbox/toolbox/bfmatlab'))
+% addpath(genpath('/ysm-gpfs/project/sm2736/toolbox/toolbox/chatAnalysis'))
+% addpath(genpath('/ysm-gpfs/project/sm2736/toolbox/toolbox/piotr_toolbox'))
+% addpath(genpath('Z:\Sarah\toolbox'))
 
 filelist = readtext('files_stim.txt', ' ');
 fnms = filelist(:, 1);
@@ -33,16 +27,23 @@ diode_th = filelist(:, 4);
 no_movies = length(fnms);
 downSampleRatio = 0.5;
 
+
+% isSVD = 1;
+% if isSVD
+%     svd_fnms = filelist(:, 5);
+% end
+
+
 stimGap = 6; % min gap should be larger than 6s
 sampleFreq = 5000; % Hz
 
 sz = [256 250];
-colorRange1 = [-0.02, 0.04];
+colorRange1 = [0.5, 0.2]; %[-2, 3]
 
-no_switchingId = 1:2;
+no_switchingId = 1:6;
 
-% for n = 1
-for n = 1:no_movies
+
+for n = 1 : no_movies
     
     clear avgResponseM
 
@@ -70,6 +71,15 @@ for n = 1:no_movies
     sz(3) = size(imgall, 2);
     imgall = reshape(imgall, sz(1) * sz(2), sz(3));
    
+%     % apply SVD, reconstruct based on good PCs
+%     if isSVD 
+%         load(svd_fnms{n});
+%         eigenLoad = imgall' * mixedfilters2;
+%         imgall = eigenLoad * mixedfilters2';
+%         imgall = imgall';
+%     end
+%     imgall = zscore(reshape(imgall, 1, sz(1)*sz(2)*sz(3)));
+%     imgall = reshape(imgall, sz(1) * sz(2), sz(3));
 
 
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -92,13 +102,19 @@ for n = 1:no_movies
     end
 
     isStim = (data_raw{2} < diode_th{n}); % white has lower value for photo diode
+    %isStim2 = (data_raw{2} < 0.01);
+    %index = find(data_raw{2} < 1.8 & data_raw{2} > 1.7);
+    
+%     isStim(1:4109154) = isStim(1:4109154);
+%     isStim(4109154:length(isStim)) = isStim2(4150026:(length(isStim)+(4150026-4109154)));
+%     isStim = isStim';
 
     stimOn = find (isStim(2:end) - isStim(1:end-1) == 1) + 1;
     stimOff = find(isStim(2:end) - isStim(1:end-1) == -1) + 1;
     if stimOff(1) < stimOn(1)
         stimOff = stimOff(2:end);
     end
-    
+        
     stimOn = stimOn(1:length(stimOff));
 
     Onsets = [stimOn(1); stimOn(find(stimOn(2:end) - stimOn(1:end-1) > (sampleFreq *stimGap)) + 1)];
