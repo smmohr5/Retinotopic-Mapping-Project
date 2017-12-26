@@ -1,0 +1,168 @@
+% Average *_resp.mat from multiple movies
+
+% clear; clc;
+
+% cd Z:\Sarah\171030_Rx_p17_male_7.0g
+% addpath(genpath('/ysm-gpfs/project/sm2736/toolbox/toolbox/piotr_toolbox'))
+% addpath(genpath('/ysm-gpfs/project/sm2736/toolbox/toolbox/wholeBrainDX'))
+% addpath(genpath('/ysm-gpfs/project/sm2736/toolbox/toolbox/sigTOOL'))
+% addpath(genpath('/ysm-gpfs/project/sm2736/toolbox/toolbox/CalciumDX'))
+% addpath(genpath('/ysm-gpfs/project/sm2736/toolbox/toolbox/bfmatlab'))
+% addpath(genpath('/ysm-gpfs/project/sm2736/toolbox/toolbox/chatAnalysis'))
+% addpath(genpath('/ysm-gpfs/project/sm2736/toolbox/toolbox/piotr_toolbox'))
+% addpath(genpath('/ysm-gpfs/project/sm2736/toolbox/toolbox/Utilities'))
+
+cd E:\Lab\Data\withSarah\data\171207
+
+
+w = 52;  % width of screen, in cm
+h = 33;  % height of screen, in cm
+z_dist = 10; % distance from the eye to screen
+
+mask_fn = '171207_mask.roi';
+% mask_fn = '171015_mask2.roi';
+% mask_fn = 'ROI_retin_171011.roi';
+% mask_fn = '171030_viscor.roi';
+% mask_fn = '171030_cran.roi';
+file_list = dir(fullfile('*_resp.mat'));
+
+downSampleRatio = .5; % down sample ratio for preprocessed movies
+order = 3; % butterworth filter order
+fs = 10; % imaging sampled at 10hz
+sz = [256 250];
+
+ROI = ReadImageJROI(mask_fn);     
+
+count = 0;
+for n = 1:length(file_list)
+    load(file_list(n).name)
+    if (size(responseM{1}, 3) == 10)
+        
+        if (n == 1)
+            all_responseM = responseM;
+            all_avgResponseM = avgResponseM;
+        else
+            for d = 1:size(responseM, 2)
+                all_responseM{d} = all_responseM{d} + responseM{d}(:, 1:size(all_responseM{d}, 2), :);
+                all_avgResponseM{d} = all_avgResponseM{d} + avgResponseM{d}(:, :, 1:size(all_avgResponseM{d}, 3));
+            end
+        end
+        
+    elseif (size(responseM{1}, 3) == 20)
+        
+        if (n == 1)
+            for d = 1:size(responseM, 2)
+                all_responseM{d} = responseM{d}(:, :, 1:10) + responseM{d}(:, :, 11:20);
+                all_avgResponseM{d} = all_avgResponseM{d};
+            end
+        else
+            for d = 1:size(responseM, 2)
+                all_responseM{d} = all_responseM{d} + responseM{d}(:, 1:size(all_responseM{d}, 2), 1:10)...
+                    + responseM{d}(:, 1:size(all_responseM{d}, 2), 11:20);
+                all_avgResponseM{d} = all_avgResponseM{d} + avgResponseM{d};
+            end
+        end
+        count = count + 1;
+    end
+end
+
+for d = 1:size(responseM, 2)
+    all_responseM{d} = all_responseM{d} / length(file_list) + count;
+    all_avgResponseM{d} = all_avgResponseM{d} / length(file_list) + count;
+end
+
+
+
+% compute phase maps
+mask = poly2mask(ROI.mnCoordinates(:, 1), ROI.mnCoordinates(:, 2), sz(1)/downSampleRatio, sz(2)/downSampleRatio); %downsample ROI
+mask = imresize(mask, downSampleRatio);
+mask_id = find(mask > 0);
+        
+
+for d = 1 : length(avgResponseM)
+
+    sz_d = size(all_responseM{d}); 
+    concat_movie{d} = reshape(all_responseM{d}, sz_d(1), sz_d(2) * sz_d(3)); 
+    fr_n =  sz_d(2) * sz_d(3);
+    k = sz_d(3); % number of repetitions in one movie
+
+
+    stimFrame = size(all_avgResponseM{d}, 3);
+    phaseMap{d} = zeros(size(avgResponseM{d}(:, :, 1)));
+    Kmap{d} = zeros(size(avgResponseM{d}(:, :, 1)));
+
+
+    nfft = fr_n;
+    f = fs / 2 * linspace(0, 1, nfft / 2 + 1); % choosing correct frequency axes
+    tmp = f - fs/sz_d(2);
+    freq_id = find(abs(tmp) == min(abs(tmp)));
+    phase = zeros(size(mask_id));
+    for p = 1 : length(mask_id)   
+        y = concat_movie{d}(mask_id(p), :);
+        if mean(y) ~= 0
+
+            res = sum(y.*exp(-1i * 2 * pi * k * (1:nfft)/nfft));
+            k_value{d}(p) = res;
+
+            include_id(p) = 1;
+        end
+    end     
+
+    Kmap{d} = zeros(sz);
+    Kmap{d}(mask_id(include_id > 0)) = k_value{d}(include_id > 0);
+
+
+    A = angle(Kmap{d})*180/pi;
+        B = find(A < -90);
+        A(B) = A(B)+ 360;
+
+ %with interstim frames phase angles vert:(-90, 135) horz:(-90, 171.82); d1/2 are horz    
+    if d == 1 || d==2
+        A = (A/1.898)-21.549;
+    else
+        A = (A/1.917)-11.74;
+    end
+
+%         if no interstim frames (-90 - 270 degrees)
+%         if d == 1 || d==2
+%             A = (A/2.6102)-34.48;
+%         else
+%             A = (A/3.0664)-29.35;
+%         end
+%         
+
+
+    h = figure; imagesc((A)); colormap HSV; axis image; colorbar %test
+
+
+    title(['original kmap d', num2str(d)])
+    saveas(h, ['phase_d', num2str(d), '.png'])
+
+end
+
+
+save('Kmap.mat', 'Kmap')
+
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% combine kmaps for horizontal vs. vertical, smoothing for kmaps
+for lowpass = [0.5, 0.75, 1, 2, 3]
+    L = fspecial('gaussian',15,lowpass); 
+    [kmap_hor kmap_vert delay_hor delay_vert magS] = ...
+        Gprocesskret_batch(Kmap, mask, L, []); % refer to the original function for input arguments
+    h = figure; 
+    set(h, 'Position', [0 0 1000 800])
+    subplot(1, 2, 1);imagesc(kmap_hor); colormap HSV; axis image; colorbar %test
+    title(['kmap_hor lowpass', num2str(lowpass)])
+    subplot(1, 2, 2);imagesc(kmap_vert); colormap HSV; axis image; colorbar %test
+    title(['kmap_vert lowpass', num2str(lowpass)])
+
+    saveas(h, ['lowpas', num2str(lowpass), '.png'])
+end  
+
+
+
+save('avgKmap', 'kmap_hor', 'kmap_vert')
+
+close all
